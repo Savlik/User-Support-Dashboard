@@ -1,6 +1,9 @@
 var express = require('express');
 var http = require('http');
 var request = require("request");
+var Intercom = require('intercom-client');
+
+var client = new Intercom.Client({ token: 'my_token' });
 
 var app = express();
 
@@ -11,30 +14,50 @@ app.get('/', function (req, res) {  //main page
 var flags = Array();
 var posts = Array();
 
+
+
 fetch_posts = function(res){
   stackoverflow = false;
-  intercom = true;
+  intercom = false;
   posts = Array();
 
   request(  //get stackoverflow posts
     {
       method: 'GET',
-      uri: "https://api.stackexchange.com/2.2/questions?order=desc&sort=creation&tagged=apiary&site=stackoverflow",
+      uri: "https://api.stackexchange.com/2.2/questions?order=desc&sort=creation&tagged=apiblueprint&site=stackoverflow",
       gzip: true
     }, function (error, response, body) {
     if (!error) {
         items = JSON.parse(body)['items'];
         for(i=0; i<items.length; i++){
-          items[i].source = "stackoverflow";
+          items[i]["source"] = "stackoverflow";
+          items[i]["id"] = "so"+items[i].question_id;
         }
         posts = posts.concat(items);
         stackoverflow = true;
         if(stackoverflow && intercom) fetch_posts_cb(res);
     } else {
-        console.log(error);
+        stackoverflow = true;
+        if(stackoverflow && intercom) fetch_posts_cb(res);
     }
   });
 
+  client.conversations.list({ type: 'admin', admin_id: 21599 }, function(response){
+    if(response.ok){
+      items = response["body"]["conversations"];
+      for(i=0; i<items.length; i++){
+        items[i]["source"] = "intercom";
+        items[i]["id"] = "i"+items[i].id;
+
+        items[i]["creation_date"] = items[i]["created_at"];
+        items[i]["title"] = items[i]["conversation_message"]["subject"];
+        items[i]["link"] = "#todo";
+      }
+      posts = posts.concat(items);
+    }
+    intercom = true;
+    if(stackoverflow && intercom) fetch_posts_cb(res);
+  });
 
 }
 
@@ -46,35 +69,15 @@ render_posts = function(){
   html = "";
   for(i=0; i<posts.length; i++){
     html +=
-    "<div id='"+items[i].source+posts[i].question_id+"' class='post'>"+
-      "<div class='source'><img src='/img/"+items[i].source+".png' /></div>"+
-      "<div class='title'><a href='"+posts[i].link+"'>"+posts[i].title+"</a></div>"+
-      "<div class='time'>"+posts[i].creation_date+"</div>"+
-
-      "<div class>"+
+    "<div id='" + items[i].id + "' class='post'>" +
+      "<div class='source'><img src='/img/" + items[i].source + ".png' /></div>" +
+      "<div class='title'><a href='" + posts[i].link+"'>" + posts[i].title + "</a></div>" +
+      "<div class='time'>" + posts[i].creation_date+"</div>" +
+      "<div class>" +
     "</div>";
   }
-  //console.log(html);
   return html;
 }
-
-app.get('/process', function (req, res) {  //process tagging with flags
-  id = req.query.id;
-  flag = req.query.flag;
-  value = req.query.value;
-
-  if(value==1){ //turn flag on
-    flags.push({id: id, flag: flag});
-  }else{  //turn flag off
-    for(i=0; i<flags.length; i++){
-      if(flags[i]['id']==id && flags[i]['flag']==flag){
-        flags.splice(i,1);
-      }
-    }
-  }
-  console.log(JSON.stringify(flags));
-  res.end(JSON.stringify(flags));
-})
 
 app.use(express.static('public'));
 
