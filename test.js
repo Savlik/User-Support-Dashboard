@@ -9,9 +9,11 @@ var settings = JSON.parse(fs.readFileSync('settings.json', 'utf8'));
 
 var app = express();
 app.set('view engine', 'ejs');
+
 var client = new Intercom.Client(settings['Intercom_app_id'], settings['Intercom_API_key']);
 
-app.get('/', function (req, res) {  //main page
+//main page
+app.get('/', function (req, res) {
   stackoverflow_tags = req.query["stackoverflow_tags"];
   if(!stackoverflow_tags){ stackoverflow_tags = "apiblueprint";}
   fetch_posts(res, stackoverflow_tags);
@@ -20,8 +22,8 @@ app.get('/', function (req, res) {  //main page
 
 //get posts from all sources, calls fetch_posts_cb when done
 fetch_posts = function(res, stackoverflow_tags){
-  stackoverflow = false;
-  intercom = false;
+  stackoverflow_done = false;
+  intercom_done = false;
   posts = Array();
 
   //get stackoverflow posts
@@ -43,33 +45,53 @@ fetch_posts = function(res, stackoverflow_tags){
 
         posts = posts.concat(items);
 
-        stackoverflow = true;
-        if(stackoverflow && intercom) fetch_posts_cb(res, posts, stackoverflow_tags);
+        stackoverflow_done = true;
+        if(stackoverflow_done && intercom_done) fetch_posts_cb(res, posts, stackoverflow_tags);
     } else {
-        stackoverflow = true;
-        if(stackoverflow && intercom) fetch_posts_cb(res, posts, stackoverflow_tags);
+        stackoverflow_done = true;
+        if(stackoverflow_done && intercom_done) fetch_posts_cb(res, posts, stackoverflow_tags);
     }
   });
 
+
+
   //get Intercom posts
-  client.conversations.list({ type: 'team', team_id: settings['Intercom_team_id'] }, function(response){
+  client.conversations.list({ }, function(response){
     if(response.statusCode == 200){
 
       items = response["body"]["conversations"];
-      items = items.filter(filter_intercom);
 
+      done = 0; //number of finished calls
       for(i=0; i<items.length; i++){
-        items[i]["source"] = "intercom";
-        if(!items[i]["conversation_message"]["subject"]) items[i]["conversation_message"]["subject"] = "No subject";
-        items[i]["id"] = "i" + items[i]["id"];
-        items[i]["creation_date"] = items[i]["created_at"];
+        client.conversations.find({id: items[i].id}, function(response2){
+
+          //get index of current post
+          i2 = -1;
+          for(j=0; j<items.length; j++){
+            if(items[j]["id"] == response2["body"]["id"]){
+              i2 = j; break;
+            }
+          }
+
+          items[i2]["conversation_parts_count"] = response2["body"]["conversation_parts"]["total_count"];
+          done++;
+
+          //all intercom data gathered
+          if(done == items.length){
+            items = items.filter(filter_intercom);
+            for(j=0; j<items.length; j++){
+              items[j]["source"] = "intercom";
+              if(!items[j]["conversation_message"]["subject"]) items[j]["conversation_message"]["subject"] = "No subject";
+              items[j]["id"] = "i" + items[j]["id"];
+              items[j]["creation_date"] = items[j]["created_at"];
+            }
+            posts = posts.concat(items);
+            intercom_done = true;
+            if(stackoverflow_done && intercom_done) fetch_posts_cb(res, posts, stackoverflow_tags);
+          }
+        });
       }
-
-      posts = posts.concat(items);
     }
-
-    intercom = true;
-    if(stackoverflow && intercom) fetch_posts_cb(res, posts, stackoverflow_tags);
   });
 
 }
@@ -86,7 +108,6 @@ fetch_posts_cb = function(res, posts, stackoverflow_tags){
     content: render_posts(posts),
     stackoverflow_tags: stackoverflow_tags
   });
-  //res.send(render_posts(posts));
 }
 
 //filtering function for stackoverflow post
@@ -96,8 +117,7 @@ filter_stackoverflow = function(o){
 
 //filtering function for intercom posts
 filter_intercom = function(o){
-  if(!"conversation_parts" in o) return false;
-  return true;
+  return o["conversation_parts_count"] == 0;
 }
 
 //returns html of all posts
