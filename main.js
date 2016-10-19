@@ -160,7 +160,7 @@ timeToString = function(timestamp){
   if (hh < 10) {hh = "0" + hh;}
   if (mm < 10) {mm = "0" + mm;}
 
-  return y + "/" + m + "/" + d + "<br />" + hh + ":" + mm;
+  return y + "-" + m + "-" + d + "<br />" + hh + ":" + mm;
 }
 
 
