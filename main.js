@@ -76,8 +76,7 @@ fetch_posts = function(res, stackoverflow_tags){
           items[i2]["conversation_parts_count"] = response2["body"]["conversation_parts"]["total_count"];
           done++;
 
-          //all intercom data gathered
-          if(done == items.length){
+          if(done == items.length){ //all intercom data gathered
             items = items.filter(filter_intercom);
             for(j=0; j<items.length; j++){
               items[j]["source"] = "intercom";
