@@ -15,7 +15,7 @@ var client = new Intercom.Client(settings['Intercom_app_id'], settings['Intercom
 //main page
 app.get('/', function (req, res) {
   stackoverflow_tags = req.query["stackoverflow_tags"];
-  if(!stackoverflow_tags){ stackoverflow_tags = "apiblueprint";}
+  if(!stackoverflow_tags){ stackoverflow_tags = settings["default_tag"];}
   fetch_posts(res, stackoverflow_tags);
 })
 

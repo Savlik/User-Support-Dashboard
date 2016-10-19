@@ -1,5 +1,6 @@
 {
   "port": 8081,
   "Intercom_app_id": "abcdef12",
-  "Intercom_API_key": "abcdef123456789abcdef123456789abcdef1234"
+  "Intercom_API_key": "abcdef123456789abcdef123456789abcdef1234",
+  "default_tag": "some_tag"
 }
